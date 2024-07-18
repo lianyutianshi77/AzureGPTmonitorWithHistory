@@ -1,0 +1,31 @@
+# 查看订阅
+az account list --query "[?contains(name,'OpenAI')].{name:name,sid:id}" -o tsv 2>/dev/null |sort -n|sed 's/\t/|/g'
+
+resource_group="AOAI"
+# 查看可支持的区域
+location_list=`az cognitiveservices account list-skus --query "[?kind=='OpenAI'].{locations:to_string(locations[0])}" -o tsv 2>/dev/null|tr 'A-Z' 'a-z'`
+echo "${location_list}"
+# 获取accessToken
+eval `az account get-access-token --query "{subscription:subscription,access_token:accessToken,token_type:tokenType}" -o yaml 2>/dev/null |sed "s/: /=/g"`
+
+# 创建openai资源实例
+for i in `echo "${location_list}"`;do aoai_name="Azure-OAI-`echo ${i}|tr 'a-z' 'A-Z'`";echo "${aoai_name}";az cognitiveservices account create --subscription ${subscription} -n ${aoai_name} -g ${resource_group} -l ${i} --kind OpenAI --sku s0 --custom-domain ${aoai_name} ;done
+# 查看服务实例
+az cognitiveservices account list --subscription ${subscription} --query "[?kind=='OpenAI'].{name:name, resource_group:resourceGroup,region:location,endpoint:properties.endpoint}" -o tsv 2>/dev/null |sed "s/\t/|/g"
+# 查看key
+az cognitiveservices account keys list --name ${ins_name} --resource-group ${resource_group} | jq -r .key1
+
+# 部署模型 4o standard
+for i in `echo "${location_list}"`;do aoai_name="Azure-OAI-`echo ${i}|tr 'a-z' 'A-Z'`";echo "${aoai_name}" ;curl -s --location --globoff --request PUT "https://management.azure.com/subscriptions/${subscription}/resourceGroups/${resource_group}/providers/Microsoft.CognitiveServices/accounts/${aoai_name}/deployments/gpt-4o-standard?api-version=2023-05-01" \
+--header "Authorization: Bearer ${access_token}" \
+--header "Content-Type: application/json" \
+--data "{'sku': {'name': 'Standard','capacity': 150},'properties': {'model': {'format': 'OpenAI','name': 'gpt-4o','version': '2024-05-13'}}}" ;done
+
+# 部署模型 4o Global
+for i in `echo "${location_list}"`;do aoai_name="Azure-OAI-`echo ${i}|tr 'a-z' 'A-Z'`";echo "${aoai_name}" ;curl -s --location --globoff --request PUT "https://management.azure.com/subscriptions/${subscription}/resourceGroups/${resource_group}/providers/Microsoft.CognitiveServices/accounts/${aoai_name}/deployments/gpt-4o-global?api-version=2023-05-01" \
+--header "Authorization: Bearer ${access_token}" \
+--header "Content-Type: application/json" \
+--data "{'sku': {'name': 'GlobalStandard','capacity': 150},'properties': {'model': {'format': 'OpenAI','name': 'gpt-4o','version': '2024-05-13'}}}" ;done
+
+# 查看模型部署
+az cognitiveservices account deployment list -g ${resource_group} -n ${aoai_name} --query "[].{base_model:properties.model.name, model_version:properties.model.version}" -o tsv 2>/dev/null|sed "s/\t/:/g"
