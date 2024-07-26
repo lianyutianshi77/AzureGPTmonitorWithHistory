@@ -34,7 +34,7 @@ JOIN
     (
         SELECT
             region,
-            resource_name,
+            deployment_type,
             deployment_name,
             model_name,
             model_version,
@@ -45,12 +45,12 @@ JOIN
             (
                 SELECT
                     region,
-                    resource_name,
+                    deployment_type,
                     deployment_name,
                     model_name,
                     model_version,
                     type,
-                    strftime('%Y%m%d%H', create_time) AS createTime,
+                    strftime('%Y%m%d', create_time) AS createTime,
                     ROUND(AVG(total_time), 4) AS avg_total_time,
                     ROUND(AVG(starttransfer_time), 4) AS avg_starttransfer_time
                 FROM
@@ -59,7 +59,7 @@ JOIN
                     type = 'IMAGE'
                 GROUP BY
                     region,
-                    resource_name,
+                    deployment_type,
                     deployment_name,
                     model_name,
                     model_version,
@@ -68,14 +68,14 @@ JOIN
             ) AS subquery
         GROUP BY
             region,
-            resource_name,
+            deployment_type,
             deployment_name,
             model_name,
             model_version,
             type
     ) AS t2
     ON t1.region = t2.region
-    AND t1.resource_name = t2.resource_name
+    AND t1.deployment_type = t2.deployment_type
     AND t1.deployment_name = t2.deployment_name
     AND t1.model_name = t2.model_name
     AND t1.model_version = t2.model_version
@@ -84,7 +84,7 @@ WHERE
     t1.type = 'IMAGE'
 GROUP BY
     t1.region,
-    t1.resource_name,
+    t1.deployment_type,
     t1.deployment_name,
     t1.model_name,
     t1.model_version,
@@ -117,7 +117,7 @@ FROM
         (
             SELECT 
                 region,
-                resource_name,
+                deployment_type,
                 deployment_name,
                 model_name,
                 model_version,
@@ -127,7 +127,7 @@ FROM
             FROM (
                 SELECT
                     region,
-                    resource_name,
+                    deployment_type,
                     deployment_name,
                     model_name,
                     model_version,
@@ -141,7 +141,7 @@ FROM
                     type = 'TEXT'
                 GROUP BY 
                     region,
-                    resource_name,
+                    deployment_type,
                     deployment_name,
                     model_name,
                     model_version,
@@ -150,14 +150,14 @@ FROM
             ) AS subquery
             GROUP BY 
                 region,
-                resource_name,
+                deployment_type,
                 deployment_name,
                 model_name,
                 model_version,
                 type   
         ) AS t2
         ON t1.region = t2.region 
-        AND t1.resource_name = t2.resource_name 
+        AND t1.deployment_type = t2.deployment_type 
         AND t1.deployment_name = t2.deployment_name 
         AND t1.model_name = t2.model_name 
         AND t1.model_version = t2.model_version 
@@ -165,7 +165,7 @@ FROM
 WHERE t1.type = 'TEXT'
 GROUP BY   
         t1.region,  
-        t1.resource_name,  
+        t1.deployment_type,  
         t1.deployment_name,  
         t1.model_name,  
         t1.model_version,  
@@ -229,7 +229,7 @@ else:
         unsafe_allow_html=True  
     )
     # st.table(df)  
-    # height = len(img_df) * 38
+    height = len(img_df) * 38
     img_max = img_df["总时间"].max()
     img_df["更新时间（+8）"] = img_df["更新时间（+8）"].apply(convert_to_utc_plus_8)
     img_df['状态'] = img_df['状态'].apply(lambda x: f'✅{x}' if x == 200 else f'❌{x}')  
@@ -263,7 +263,7 @@ else:
                 help="10天内的历史数据",
             ),
         },
-        # height=height,
+        height=height,
         hide_index=True,
     )
 st.markdown("---")
@@ -274,7 +274,7 @@ if text_data is None or len(text_data) == 0:
 else:
     text_df = pd.DataFrame(text_data)
     # st.table(df)  
-    text_height = len(text_df) * 38
+    text_height = len(text_df) * 37
     text_max = text_df["总时间"].max()
     text_df["更新时间（+8）"] = text_df["更新时间（+8）"].apply(convert_to_utc_plus_8)
     text_df['状态'] = text_df['状态'].apply(lambda x: f'✅{x}' if x == 200 else f'❌{x}')  
@@ -314,7 +314,10 @@ else:
 
 st.markdown("---")
 st.write("Support by Min")
+st.write("Reference https://github.com/lianyutianshi77/AzureGPTmonitorWithHistory")
 
+
+# st.markdown("---")
 # st.markdown("#### 数据查询：")
 # query = st.text_area('数据查询：', value="""select count(*) as 数量 from gpt_latency_data_history;""", help='输入SQL查询语句, 不支持非Select以外的操作', label_visibility="collapsed")
 # if st.button('执行查询'):        
@@ -328,6 +331,7 @@ st.write("Support by Min")
             
 #             # 检查查询结果并显示相应信息
 #             if df:
+#                 st.write(f"查询到{len(df)}条数据 . . . ")
 #                 st.dataframe(df)
 #                 # st.write(df)
 #             else:
