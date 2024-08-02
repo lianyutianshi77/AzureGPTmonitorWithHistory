@@ -10,9 +10,10 @@ from utils.data import SQLiteDatabase
 def get_gpt_resources(option1=None, option2=None):
     # option1: 选择读取方式file、 db
     # option2: 处理内容类型img、text
+    # option1 = 'file'
     if option1.lower() == 'db' or option1 is None:
         db = SQLiteDatabase()
-    
+
         select_sql = """SELECT
         resource_name,
         region,
@@ -23,6 +24,7 @@ def get_gpt_resources(option1=None, option2=None):
         model_version
     FROM gpt_resource_list
     where (model_name like 'gpt-4%' or model_name like 'gpt-35%') and model_name != 'gpt-35-turbo-instruct';"""
+    # where deployment_name like 'gpt-4o-mini%';"""
         if option2.lower() == 'img' or option2.lower() == 'image' or option2 is None:
             select_sql = """SELECT
         resource_name,
@@ -33,12 +35,11 @@ def get_gpt_resources(option1=None, option2=None):
         model_name,
         model_version
     from gpt_resource_list
-    where model_name = "gpt-4o"
-    or (model_name = 'gpt-4' and (model_version = 'turbo-2024-04-09' or model_version = 'vision-preview'))
-    """
+    where model_name like "gpt-4o%" or (model_name = 'gpt-4' and (model_version = 'turbo-2024-04-09' or model_version = 'vision-preview'));"""
+    # where deployment_name like 'gpt-4o-mini%';"""
         gpt_list = db.query(select_sql)
         return gpt_list
-    
+
     else:
         import pandas as pd
         import os
@@ -46,9 +47,11 @@ def get_gpt_resources(option1=None, option2=None):
         df = pd.read_excel(resource_file)
         data = df
         if option2.lower() == 'img' or option2.lower() == 'image' or option2 is None:
-            data = df.query('(model_name == "gpt-4o") or (model_name == "gpt-4" and model_version in ["turbo-2024-04-09", "vision-preview"])')
+            data = df.query('(model_name == "gpt-4o" or model_name == "gpt-4o-mini") or (model_name == "gpt-4" and model_version in ["turbo-2024-04-09", "vision-preview"])')
+            # data = df.query('(deployment_name in ["gpt-4o-mini-standard","gpt-4o-mini-global"])')
         else:
-            data = df[df['model_name'].str.startswith(('gpt-35', 'gpt-4'))] 
+            data = df[df['model_name'].str.startswith(('gpt-35', 'gpt-4'))]
+            # data = df.query('(deployment_name in ["gpt-4o-mini-standard","gpt-4o-mini-global"])')
         return data.to_dict(orient='records')
 
 def gpt_request(sys_msg, resource_name, key, engine, user_msg):
@@ -82,7 +85,7 @@ def gpt_request(sys_msg, resource_name, key, engine, user_msg):
         buffer,buffer2 = BytesIO(), BytesIO()
         response_body = ""
         try:
-            url = f"https://{resource_name}.openai.azure.com/openai/deployments/{engine}/chat/completions?api-version=2024-05-01-preview"
+            url = f"https://{resource_name}.openai.azure.com/openai/deployments/{engine}/chat/completions?api-version=2024-06-01"
             headers = ["Content-Type: Application/json", f"api-key: {key}"]
             body_data = { # 计算文本长度非流式比较方便
                 "messages": [
@@ -117,7 +120,7 @@ def gpt_request(sys_msg, resource_name, key, engine, user_msg):
             data["request_size"] = request_client.getinfo(pycurl.REQUEST_SIZE)
             request_client.close()
 
-            
+
             body_data2 = { # 获取首token流式比较方便
                 "messages": [
                     {"role": "system", "content": sys_msg},
@@ -166,8 +169,8 @@ def process_image_resource():
     start_time = time.time()
     print(f"Begin request image at {time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(start_time))} ------------------------------------------------")
     gpt4_list = get_gpt_resources("db", "img")
-    print(f"get {len(gpt4_list)} gpt resource") 
-    
+    print(f"get {len(gpt4_list)} gpt resource")
+
     images= ['xxx','xxx','xxx']
 
     sys_msg = ""
@@ -177,7 +180,7 @@ def process_image_resource():
         length = 0
         resource_key = gpt4["resource_key"]
         key = resource_key
-        
+
         try:
             if isinstance(resource_key, bytes):
                 key = base64.b64decode(resource_key).decode("utf-8")
@@ -191,9 +194,9 @@ def process_image_resource():
         for index, img in enumerate(images[:]):
 
             import requests
-            try:  
-                response = requests.get(img, timeout=10)  # 设置超时时间，防止请求挂起  
-                if response.status_code == 200:  
+            try:
+                response = requests.get(img, timeout=10)  # 设置超时时间，防止请求挂起
+                if response.status_code == 200:
                     print(f"Image {img} found successfully.")
                     user_msg = [
                         {"type": "text", "text": "提取文本："},
@@ -209,12 +212,10 @@ def process_image_resource():
 "职位": String
 }
 """
-                else:  
-                    print(f"Image {img} not found, status code: {response.status_code}. Please check the URL.")  
-            except requests.exceptions.RequestException as e:  
-                print(f"An error occurred while trying to fetch the image {img}: {e}")  
-            
-            print(f'{gpt4["resource_name"]},{gpt4["deployment_name"]} ,{key}')
+                else:
+                    print(f"Image {img} not found, status code: {response.status_code}. Please check the URL.")
+            except requests.exceptions.RequestException as e:
+                print(f"An error occurred while trying to fetch the image {img}: {e}")
 
             res = gpt_request(sys_msg, gpt4["resource_name"], key , gpt4["deployment_name"], user_msg)
             res["input_content_length"] = len(sys_msg) + len(json.dumps(user_msg))
@@ -247,7 +248,7 @@ def process_text_resource():
     start_time = time.time()
     print(f"Begin request text at {time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(start_time))} ------------------------------------------------")
     gpt_list = get_gpt_resources("db", "text")
-    print(f"get {len(gpt_list)} gpt resource") 
+    print(f"get {len(gpt_list)} gpt resource")
     questions = [
         "什么是合同法？",
         "员工在工作中受到伤害，公司需要承担哪些法律责任？",
@@ -260,7 +261,7 @@ def process_text_resource():
         length = 0
         resource_key = gpt4["resource_key"]
         key = resource_key
-        
+
         try:
             if isinstance(resource_key, bytes):
                 key = base64.b64decode(resource_key).decode("utf-8")
@@ -300,11 +301,11 @@ def process_text_resource():
     print(f"Text data inserted done at {time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(end_time))}, elapsed time: {round(end_time - start_time, 4)} seconds --------------------------------")
 
 def history_data():
-    insert_sql = """INSERT OR REPLACE INTO gpt_latency_data_history (  
-    region, resource_name, deployment_name, deployment_type, model_name, model_version, type, request_times, content, input_tokens, input_content_length, output_tokens, output_content_length, status, total_time, namelookup_time, connect_time, pretransfer_time, starttransfer_time, redirect_time, size_upload, speed_upload, size_download, speed_download, header_size, request_size, create_time, update_time  
-)  
+    insert_sql = """INSERT OR REPLACE INTO gpt_latency_data_history (
+    region, resource_name, deployment_name, deployment_type, model_name, model_version, type, request_times, content, input_tokens, input_content_length, output_tokens, output_content_length, status, total_time, namelookup_time, connect_time, pretransfer_time, starttransfer_time, redirect_time, size_upload, speed_upload, size_download, speed_download, header_size, request_size, create_time, update_time
+)
 SELECT
-    region, resource_name, deployment_name, deployment_type, model_name, model_version, type, request_times, content, input_tokens, input_content_length, output_tokens, output_content_length, status, total_time, namelookup_time, connect_time, pretransfer_time, starttransfer_time, redirect_time, size_upload, speed_upload, size_download, speed_download, header_size, request_size, create_time, update_time  
+    region, resource_name, deployment_name, deployment_type, model_name, model_version, type, request_times, content, input_tokens, input_content_length, output_tokens, output_content_length, status, total_time, namelookup_time, connect_time, pretransfer_time, starttransfer_time, redirect_time, size_upload, speed_upload, size_download, speed_download, header_size, request_size, create_time, update_time
 FROM gpt_latency_data;
 """
     try:
@@ -312,19 +313,17 @@ FROM gpt_latency_data;
         print(f"The archiving successful")
         # delete_sql = "DELETE FROM gpt_latency_data;"
         # SQLiteDatabase().modify(delete_sql)
-        delete_sql = "DELETE FROM gpt_latency_data_history where update_time < DATE('now', '-10 days');"
-        SQLiteDatabase().modify(delete_sql)
-        print(f"Deleted data older than 10 days.")
+        delete_sql = "DELETE FROM gpt_latency_data_history where update_time < DATE('now', '-30 days');"
+        #SQLiteDatabase().modify(delete_sql)
+        print(f"Deleted data older than 30 days.")
         return True
     except Exception as e:
         print(f"The archiving failed, {e}")
         return False
 
 def main():
-    # process_image_resource()
-    # process_text_resource()
-    pass
-
+    process_image_resource()
+    process_text_resource()
 
 if __name__ == "__main__":
     main()
