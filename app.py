@@ -230,9 +230,13 @@ else:
     )
     # st.table(df)
     height = len(img_df) * 38
-    img_max = img_df["总时间"].max()
+    
+    img_df["总时间"] = img_df["总时间"] if img_df["总时间"] is not None else 0.0
+    img_df["首Token时间"] = img_df["首Token时间"] if img_df["首Token时间"] is not None else 0.0
     img_df["更新时间（+8）"] = img_df["更新时间（+8）"].apply(convert_to_utc_plus_8)
     img_df['状态'] = img_df['状态'].apply(lambda x: f'✅{x}' if x == 200 else f'❌{x}')
+    img_max = img_df["总时间"].max()
+    
     # 显示数据表格
     # st.dataframe(styled_df, hide_index=True)
     st.dataframe(
@@ -275,9 +279,13 @@ else:
     text_df = pd.DataFrame(text_data)
     # st.table(df)
     text_height = len(text_df) * 37
-    text_max = text_df["总时间"].max()
+    
+    text_df["总时间"] = text_df["总时间"] if text_df["总时间"] is not None else 0.0
+    text_df["首Token时间"] = text_df["首Token时间"] if text_df["首Token时间"] is not None else 0.0
     text_df["更新时间（+8）"] = text_df["更新时间（+8）"].apply(convert_to_utc_plus_8)
     text_df['状态'] = text_df['状态'].apply(lambda x: f'✅{x}' if x == 200 else f'❌{x}')
+    text_max = text_df["总时间"].max() if "总时间" in text_df.columns else 0
+    
     # 显示数据表格
     # st.dataframe(styled_df, hide_index=True)
     st.dataframe(
