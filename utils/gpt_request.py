@@ -58,26 +58,27 @@ def gpt_request(sys_msg, resource_name, key, engine, user_msg):
     retries = 3
     data = {
         # "content": None,
-        "input_tokens": None,
-        "output_tokens": None,
-        "input_content_length": None,
-        "output_content_length": None,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "input_content_length": 0,
+        "output_content_length": 0,
         "status": None,
-        "total_time": None,
-        "namelookup_time": None,
-        "connect_time": None,
-        "pretransfer_time": None,
-        "starttransfer_time": None,
-        "redirect_time": None,
-        "size_upload": None,
-        "speed_upload": None,
-        "size_download": None,
-        "speed_download": None,
-        "header_size": None,
-        "request_size": None
+        "total_time": 0.0,
+        "namelookup_time": 0.0,
+        "connect_time": 0.0,
+        "pretransfer_time": 0.0,
+        "starttransfer_time": 0.0,
+        "redirect_time": 0.0,
+        "size_upload": 0.0,
+        "speed_upload": 0.0,
+        "size_download": 0.0,
+        "speed_download": 0.0,
+        "header_size": 0.0,
+        "request_size": 0.0
     }
 
     if len(sys_msg) == 0 and len(user_msg) == 0:
+        data["status"] = 400
         return data
 
     print(f"{resource_name} - {engine} start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
